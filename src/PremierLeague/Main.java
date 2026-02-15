@@ -13,60 +13,68 @@ public class Main {
         MatchReader reader = new MatchReader();
         reader.readCsv(teamMap, leagueStats, "E0.csv");
 
-        String homeTeam = "Wolves";
-        String awayTeam = "Arsenal";
+        String homeTeam = "Aston Villa";
+        String awayTeam = "Newcastle";
 
-        if (teamMap.containsKey(homeTeam) && teamMap.containsKey(awayTeam)) {
-
-            TeamStats homeStats = teamMap.get(homeTeam);
-            TeamStats awayStats = teamMap.get(awayTeam);
-
-            double mu = leagueStats.getAverageGoalsPerTeam();
-
-            // 🔹 Modelo normalizado
-            double lambdaHome =
-                    (homeStats.getHomeAverageGoalsFor() *
-                            awayStats.getAwayAverageGoalsAgainst()) / mu;
-
-            double lambdaAway =
-                    (awayStats.getAwayAverageGoalsFor() *
-                            homeStats.getHomeAverageGoalsAgainst()) / mu;
-
-            System.out.println("----- Predicción Poisson Normalizada -----");
-            System.out.println("μ liga: " + mu);
-            System.out.println(homeTeam + " λ: " + lambdaHome);
-            System.out.println(awayTeam + " λ: " + lambdaAway);
-
-            int maxGoals = 5;
-
-            double[][] matrix =
-                    PoissonCalculator.generateScoreMatrix(lambdaHome, lambdaAway, maxGoals);
-
-            PoissonCalculator.printScoreMatrix(matrix);
-
-            double[] result = PoissonCalculator.calculate1X2(matrix);
-
-            double homeProb = result[0];
-            double drawProb = result[1];
-            double awayProb = result[2];
-
-            System.out.println("\n----- 1X2 Probabilidades -----");
-            System.out.printf("Local: %.4f (%.2f%%)%n", homeProb, homeProb * 100);
-            System.out.printf("Empate: %.4f (%.2f%%)%n", drawProb, drawProb * 100);
-            System.out.printf("Visitante: %.4f (%.2f%%)%n", awayProb, awayProb * 100);
-
-            // -------------------------
-            // Calcular odds teóricas
-            // -------------------------
-
-            double homeOdds = homeProb > 0 ? 1.0 / homeProb : 0;
-            double drawOdds = drawProb > 0 ? 1.0 / drawProb : 0;
-            double awayOdds = awayProb > 0 ? 1.0 / awayProb : 0;
-
-            System.out.println("\n----- Odds Teóricas (Fair Odds) -----");
-            System.out.printf("Local: %.2f%n", homeOdds);
-            System.out.printf("Empate: %.2f%n", drawOdds);
-            System.out.printf("Visitante: %.2f%n", awayOdds);
+        if (!teamMap.containsKey(homeTeam) || !teamMap.containsKey(awayTeam)) {
+            System.out.println("Equipo no encontrado");
+            return;
         }
+
+        TeamStats homeStats = teamMap.get(homeTeam);
+        TeamStats awayStats = teamMap.get(awayTeam);
+
+        double mu = leagueStats.getAverageGoalsPerTeam();
+
+        // -------------------------
+        // λ base normalizado
+        // -------------------------
+        double lambdaHome =
+                (homeStats.getHomeAverageGoalsFor()
+                        * awayStats.getAwayAverageGoalsAgainst()) / mu;
+
+        double lambdaAway =
+                (awayStats.getAwayAverageGoalsFor()
+                        * homeStats.getHomeAverageGoalsAgainst()) / mu;
+
+        // -------------------------
+        // 🔹 Factores ofensivos
+        // -------------------------
+        double attackFactorHome =
+                0.5 * homeStats.getHomeShotsOnTargetRatio(leagueStats) +
+                        0.3 * homeStats.getHomeShotsRatio(leagueStats) +
+                        0.2 * homeStats.getHomeCornersRatio(leagueStats);
+
+        double attackFactorAway =
+                0.5 * awayStats.getAwayShotsOnTargetRatio(leagueStats) +
+                        0.3 * awayStats.getAwayShotsRatio(leagueStats) +
+                        0.2 * awayStats.getAwayCornersRatio(leagueStats);
+
+        lambdaHome *= attackFactorHome;
+        lambdaAway *= attackFactorAway;
+
+        System.out.println("----- Predicción Poisson Ajustada -----");
+        System.out.println("μ liga: " + mu);
+        System.out.println(homeTeam + " λ ajustado: " + lambdaHome);
+        System.out.println(awayTeam + " λ ajustado: " + lambdaAway);
+
+        int maxGoals = 5;
+
+        double[][] matrix =
+                PoissonCalculator.generateScoreMatrix(lambdaHome, lambdaAway, maxGoals);
+
+        PoissonCalculator.printScoreMatrix(matrix);
+
+        double[] probs = PoissonCalculator.calculate1X2(matrix);
+
+        System.out.println("\n----- Probabilidades 1X2 -----");
+        System.out.printf("Local: %.2f%%%n", probs[0] * 100);
+        System.out.printf("Empate: %.2f%%%n", probs[1] * 100);
+        System.out.printf("Visitante: %.2f%%%n", probs[2] * 100);
+
+        System.out.println("\n----- Fair Odds -----");
+        System.out.printf("Local: %.2f%n", 1 / probs[0]);
+        System.out.printf("Empate: %.2f%n", 1 / probs[1]);
+        System.out.printf("Visitante: %.2f%n", 1 / probs[2]);
     }
 }

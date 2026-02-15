@@ -2,69 +2,41 @@ package PremierLeague;
 
 public class PoissonCalculator {
 
-    // -------------------------
-    // Probabilidad Poisson
-    // -------------------------
     public static double poissonProbability(int k, double lambda) {
         return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
     }
 
     private static int factorial(int n) {
         if (n <= 1) return 1;
-        int result = 1;
-        for (int i = 2; i <= n; i++) {
-            result *= i;
-        }
-        return result;
+        int r = 1;
+        for (int i = 2; i <= n; i++) r *= i;
+        return r;
     }
 
-    // -------------------------
-    // Generar matriz de resultados
-    // -------------------------
-    public static double[][] generateScoreMatrix(double lambdaHome,
-                                                 double lambdaAway,
-                                                 int maxGoals) {
+    public static double[][] generateScoreMatrix(double lh, double la, int max) {
 
-        double[][] matrix = new double[maxGoals + 1][maxGoals + 1];
+        double[][] m = new double[max + 1][max + 1];
 
-        for (int i = 0; i <= maxGoals; i++) {
-            for (int j = 0; j <= maxGoals; j++) {
-
-                double pHome = poissonProbability(i, lambdaHome);
-                double pAway = poissonProbability(j, lambdaAway);
-
-                matrix[i][j] = pHome * pAway;
+        for (int i = 0; i <= max; i++) {
+            for (int j = 0; j <= max; j++) {
+                m[i][j] = poissonProbability(i, lh) * poissonProbability(j, la);
             }
         }
-
-        return matrix;
+        return m;
     }
 
-    // -------------------------
-    // Calcular 1X2
-    // -------------------------
-    public static double[] calculate1X2(double[][] matrix) {
+    public static double[] calculate1X2(double[][] m) {
 
-        double homeWin = 0;
-        double draw = 0;
-        double awayWin = 0;
+        double h = 0, d = 0, a = 0;
 
-        int size = matrix.length;
-
-        for (int i = 0; i < size; i++) {
-            for (int j = 0; j < size; j++) {
-
-                if (i > j) {
-                    homeWin += matrix[i][j];
-                } else if (i == j) {
-                    draw += matrix[i][j];
-                } else {
-                    awayWin += matrix[i][j];
-                }
+        for (int i = 0; i < m.length; i++) {
+            for (int j = 0; j < m.length; j++) {
+                if (i > j) h += m[i][j];
+                else if (i == j) d += m[i][j];
+                else a += m[i][j];
             }
         }
-
-        return new double[]{homeWin, draw, awayWin};
+        return new double[]{h, d, a};
     }
 
     public static void printScoreMatrix(double[][] matrix) {

@@ -2,34 +2,38 @@ package PremierLeague;
 
 public class TeamStats {
 
-    private int homeGoalsFor = 0;
-    private int homeGoalsAgainst = 0;
-    private int homeMatches = 0;
+    private int homeMatches = 0, awayMatches = 0;
 
-    private int awayGoalsFor = 0;
-    private int awayGoalsAgainst = 0;
-    private int awayMatches = 0;
+    private int homeGoalsFor = 0, homeGoalsAgainst = 0;
+    private int awayGoalsFor = 0, awayGoalsAgainst = 0;
+
+    private int homeShots = 0, homeShotsOnTarget = 0, homeCorners = 0;
+    private int awayShots = 0, awayShotsOnTarget = 0, awayCorners = 0;
 
     // -------------------------
-    // Métodos para actualizar
+    // Actualización
     // -------------------------
-
-    public void addHomeMatch(int goalsFor, int goalsAgainst) {
-        homeGoalsFor += goalsFor;
-        homeGoalsAgainst += goalsAgainst;
+    public void addHomeMatch(int gf, int ga, int shots, int shotsOT, int corners) {
+        homeGoalsFor += gf;
+        homeGoalsAgainst += ga;
+        homeShots += shots;
+        homeShotsOnTarget += shotsOT;
+        homeCorners += corners;
         homeMatches++;
     }
 
-    public void addAwayMatch(int goalsFor, int goalsAgainst) {
-        awayGoalsFor += goalsFor;
-        awayGoalsAgainst += goalsAgainst;
+    public void addAwayMatch(int gf, int ga, int shots, int shotsOT, int corners) {
+        awayGoalsFor += gf;
+        awayGoalsAgainst += ga;
+        awayShots += shots;
+        awayShotsOnTarget += shotsOT;
+        awayCorners += corners;
         awayMatches++;
     }
 
     // -------------------------
-    // Promedios como local
+    // Goles
     // -------------------------
-
     public double getHomeAverageGoalsFor() {
         return homeMatches == 0 ? 0 : (double) homeGoalsFor / homeMatches;
     }
@@ -37,10 +41,6 @@ public class TeamStats {
     public double getHomeAverageGoalsAgainst() {
         return homeMatches == 0 ? 0 : (double) homeGoalsAgainst / homeMatches;
     }
-
-    // -------------------------
-    // Promedios como visitante
-    // -------------------------
 
     public double getAwayAverageGoalsFor() {
         return awayMatches == 0 ? 0 : (double) awayGoalsFor / awayMatches;
@@ -51,18 +51,35 @@ public class TeamStats {
     }
 
     // -------------------------
-    // Promedios generales (opcional)
+    // Ratios normalizados vs liga
     // -------------------------
-
-    public double getTotalAverageGoalsFor() {
-        int totalMatches = homeMatches + awayMatches;
-        return totalMatches == 0 ? 0 :
-                (double) (homeGoalsFor + awayGoalsFor) / totalMatches;
+    public double getHomeShotsRatio(LeagueStats league) {
+        return homeMatches == 0 ? 1 :
+                (homeShots / (double) homeMatches) / league.getAvgHomeShots();
     }
 
-    public double getTotalAverageGoalsAgainst() {
-        int totalMatches = homeMatches + awayMatches;
-        return totalMatches == 0 ? 0 :
-                (double) (homeGoalsAgainst + awayGoalsAgainst) / totalMatches;
+    public double getHomeShotsOnTargetRatio(LeagueStats league) {
+        return homeMatches == 0 ? 1 :
+                (homeShotsOnTarget / (double) homeMatches) / league.getAvgHomeShotsOnTarget();
+    }
+
+    public double getHomeCornersRatio(LeagueStats league) {
+        return homeMatches == 0 ? 1 :
+                (homeCorners / (double) homeMatches) / league.getAvgHomeCorners();
+    }
+
+    public double getAwayShotsRatio(LeagueStats league) {
+        return awayMatches == 0 ? 1 :
+                (awayShots / (double) awayMatches) / league.getAvgAwayShots();
+    }
+
+    public double getAwayShotsOnTargetRatio(LeagueStats league) {
+        return awayMatches == 0 ? 1 :
+                (awayShotsOnTarget / (double) awayMatches) / league.getAvgAwayShotsOnTarget();
+    }
+
+    public double getAwayCornersRatio(LeagueStats league) {
+        return awayMatches == 0 ? 1 :
+                (awayCorners / (double) awayMatches) / league.getAvgAwayCorners();
     }
 }

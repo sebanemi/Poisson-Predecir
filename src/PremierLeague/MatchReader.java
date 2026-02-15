@@ -14,45 +14,42 @@ public class MatchReader {
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
 
             String line;
-            boolean firstLine = true;
+            boolean header = true;
 
             while ((line = br.readLine()) != null) {
 
-                if (firstLine) {
-                    firstLine = false;
+                if (header) {
+                    header = false;
                     continue;
                 }
 
-                String[] columns = line.split(",");
+                String[] c = line.split(",");
 
-                if (columns.length <= 6) continue;
+                if (c.length < 19) continue;
 
-                String homeTeam = columns[3].trim();
-                String awayTeam = columns[4].trim();
+                String home = c[3].trim();
+                String away = c[4].trim();
 
-                if (columns[5].isEmpty() || columns[6].isEmpty()) continue;
+                int hg = Integer.parseInt(c[5]);
+                int ag = Integer.parseInt(c[6]);
 
-                int homeGoals;
-                int awayGoals;
+                int hs = Integer.parseInt(c[13]);
+                int as = Integer.parseInt(c[14]);
+                int hst = Integer.parseInt(c[15]);
+                int ast = Integer.parseInt(c[16]);
+                int hc = Integer.parseInt(c[17]);
+                int ac = Integer.parseInt(c[18]);
 
-                try {
-                    homeGoals = Integer.parseInt(columns[5].trim());
-                    awayGoals = Integer.parseInt(columns[6].trim());
-                } catch (NumberFormatException e) {
-                    continue;
-                }
+                teamMap.putIfAbsent(home, new TeamStats());
+                teamMap.putIfAbsent(away, new TeamStats());
 
-                teamMap.putIfAbsent(homeTeam, new TeamStats());
-                teamMap.putIfAbsent(awayTeam, new TeamStats());
+                teamMap.get(home).addHomeMatch(hg, ag, hs, hst, hc);
+                teamMap.get(away).addAwayMatch(ag, hg, as, ast, ac);
 
-                teamMap.get(homeTeam).addHomeMatch(homeGoals, awayGoals);
-                teamMap.get(awayTeam).addAwayMatch(awayGoals, homeGoals);
-
-                // 🔹 NUEVO: alimentar estadística de liga
-                leagueStats.addMatch(homeGoals, awayGoals);
+                leagueStats.addMatch(hg, ag, hs, as, hst, ast, hc, ac);
             }
 
-        } catch (IOException e) {
+        } catch (IOException | NumberFormatException e) {
             e.printStackTrace();
         }
     }
