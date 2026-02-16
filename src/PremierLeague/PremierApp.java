@@ -2,10 +2,13 @@ package PremierLeague;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 
-public class Main {
+import main.PoissonCalculator;
 
-    public static void main(String[] args) {
+public class PremierApp {
+
+    public void run() {
 
         Map<String, TeamStats> teamMap = new HashMap<>();
         LeagueStats leagueStats = new LeagueStats();
@@ -13,13 +16,22 @@ public class Main {
         MatchReader reader = new MatchReader();
         reader.readCsv(teamMap, leagueStats, "E0.csv");
 
-        String homeTeam = "Aston Villa";
-        String awayTeam = "Newcastle";
+        Scanner sc = new Scanner(System.in);
 
-        if (!teamMap.containsKey(homeTeam) || !teamMap.containsKey(awayTeam)) {
-            System.out.println("Equipo no encontrado");
-            return;
-        }
+        // =========================
+        // Ingreso validado de equipos
+        // =========================
+        String homeTeam = pedirEquipoValido("local", teamMap, sc);
+        String awayTeam;
+
+        do {
+            awayTeam = pedirEquipoValido("visitante", teamMap, sc);
+
+            if (awayTeam.equals(homeTeam)) {
+                System.out.println("❌ El equipo visitante no puede ser el mismo que el local.");
+            }
+
+        } while (awayTeam.equals(homeTeam));
 
         TeamStats homeStats = teamMap.get(homeTeam);
         TeamStats awayStats = teamMap.get(awayTeam);
@@ -53,7 +65,7 @@ public class Main {
         lambdaHome *= attackFactorHome;
         lambdaAway *= attackFactorAway;
 
-        System.out.println("----- Predicción Poisson Ajustada -----");
+        System.out.println("\n----- Predicción Poisson Ajustada -----");
         System.out.println("μ liga: " + mu);
         System.out.println(homeTeam + " λ ajustado: " + lambdaHome);
         System.out.println(awayTeam + " λ ajustado: " + lambdaAway);
@@ -76,5 +88,28 @@ public class Main {
         System.out.printf("Local: %.2f%n", 1 / probs[0]);
         System.out.printf("Empate: %.2f%n", 1 / probs[1]);
         System.out.printf("Visitante: %.2f%n", 1 / probs[2]);
+    }
+
+    // =====================================================
+    // Método privado de validación (encapsulado en la clase)
+    // =====================================================
+    private String pedirEquipoValido(String tipo, Map<String, TeamStats> teamMap, Scanner sc) {
+
+        while (true) {
+            System.out.print("Ingresá el equipo " + tipo + ": ");
+            String input = sc.nextLine();
+
+            // Normalización del input
+            input = input.trim();
+            input = input.replaceAll("\\s+", " ");
+
+            for (String teamName : teamMap.keySet()) {
+                if (teamName.equalsIgnoreCase(input)) {
+                    return teamName; // devuelve la clave EXACTA del map
+                }
+            }
+
+            System.out.println("❌ Equipo no encontrado. Revisá el nombre e intentá de nuevo.");
+        }
     }
 }

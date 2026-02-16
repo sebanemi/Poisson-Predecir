@@ -1,4 +1,4 @@
-package PremierLeague;
+package main;
 
 public class PoissonCalculator {
 
