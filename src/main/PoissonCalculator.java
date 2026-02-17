@@ -63,4 +63,35 @@ public class PoissonCalculator {
             System.out.println();
         }
     }
+
+    public static class MostProbableResult {
+        public final int homeGoals;
+        public final int awayGoals;
+        public final double probability;
+
+        public MostProbableResult(int h, int a, double p) {
+            this.homeGoals = h;
+            this.awayGoals = a;
+            this.probability = p;
+        }
+    }
+
+    public static MostProbableResult getMostProbableScore(double[][] matrix) {
+
+        int bestH = 0;
+        int bestA = 0;
+        double bestP = 0;
+
+        for (int i = 0; i < matrix.length; i++) {
+            for (int j = 0; j < matrix[i].length; j++) {
+                if (matrix[i][j] > bestP) {
+                    bestP = matrix[i][j];
+                    bestH = i;
+                    bestA = j;
+                }
+            }
+        }
+
+        return new MostProbableResult(bestH, bestA, bestP);
+    }
 }
