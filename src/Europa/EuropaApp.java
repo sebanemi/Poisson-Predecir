@@ -1,141 +1,65 @@
 package Europa;
-
 import java.util.Scanner;
-import main.PoissonCalculator;
 
 public class EuropaApp {
-
     public void run() {
-
         EuropaLoader.EuropeData data = new EuropaLoader().loadAll();
-
-        if (data.teams.isEmpty()) {
-            System.out.println("❌ No se cargaron partidos europeos.");
-            return;
-        }
-
         Scanner sc = new Scanner(System.in);
 
-        // =========================
-        // Ingreso de equipos
-        // =========================
-        String homeTeam = pedirEquipo("local", data, sc);
-        String awayTeam;
+        System.out.print("Local: "); String hIn = sc.nextLine();
+        System.out.print("Visitante: "); String aIn = sc.nextLine();
 
-        do {
-            awayTeam = pedirEquipo("visitante", data, sc);
-            if (awayTeam.equals(homeTeam)) {
-                System.out.println("❌ El visitante no puede ser el mismo que el local.");
-            }
-        } while (awayTeam.equals(homeTeam));
+        TeamStats h = null, a = null;
+        for (String name : data.teams.keySet()) {
+            if (name.equalsIgnoreCase(hIn)) h = data.teams.get(name);
+            if (name.equalsIgnoreCase(aIn)) a = data.teams.get(name);
+        }
 
-        TeamStats home = data.teams.get(homeTeam);
-        TeamStats away = data.teams.get(awayTeam);
-
-        LeagueStats homeLeague = data.leagues.get(home.getLeague());
-        LeagueStats awayLeague = data.leagues.get(away.getLeague());
-
-        // =========================
-        // Promedios de liga
-        // =========================
-        double leagueHomeAvg = homeLeague.avgHomeGoals();
-        double leagueAwayAvg = awayLeague.avgAwayGoals();
-
-        if (leagueHomeAvg == 0 || leagueAwayAvg == 0) {
-            System.out.println("❌ No hay suficientes datos para calcular lambdas.");
-            sc.close();
+        if (h == null || a == null) {
+            System.out.println("Error: uno o ambos equipos no fueron encontrados en los datos.");
             return;
         }
 
-        // =========================
-        // Lambdas correctos
-        // =========================
-        double lambdaHome =
-                home.homeGF() * away.awayGA() / leagueAwayAvg;
+        double wH = LeagueRanking.weight(h.getLeague());
+        double wA = LeagueRanking.weight(a.getLeague());
+        double rawRatio = wH / wA;
 
-        double lambdaAway =
-                away.awayGF() * home.homeGA() / leagueHomeAvg;
+        double leagueAdj_FT = Math.pow(rawRatio, 2.0);
+        double leagueAdj_HT = Math.pow(rawRatio, 3.0);
 
-        // Piso de seguridad
-        lambdaHome = Math.max(lambdaHome, 0.05);
-        lambdaAway = Math.max(lambdaAway, 0.05);
+        double avgWeight = (wH + wA) / 2.0;
+        double capFT = 1.80 + (avgWeight - 0.70) * (2.50 - 1.80) / (1.00 - 0.70);
+        double capHT = 0.80 + (avgWeight - 0.70) * (1.20 - 0.80) / (1.00 - 0.70);
 
-        // =========================
-        // Salida informativa
-        // =========================
-        System.out.println("\n----- Predicción Poisson (Europa) -----");
-        System.out.printf("Liga local (%s) - Promedio goles local: %.3f%n",
-                home.getLeague(), leagueHomeAvg);
-        System.out.printf("Liga visitante (%s) - Promedio goles visitante: %.3f%n",
-                away.getLeague(), leagueAwayAvg);
+        System.out.printf("\n[Liga Local: %s (%.2f) | Liga Visitante: %s (%.2f) | Ajuste FT: %.3f | Ajuste HT: %.3f]\n",
+                h.getLeague(), wH, a.getLeague(), wA, leagueAdj_FT, leagueAdj_HT);
+        System.out.printf("[Cap FT: %.2f | Cap HT: %.2f]\n", capFT, capHT);
 
-        System.out.println(homeTeam + " λ: " + lambdaHome);
-        System.out.println(awayTeam + " λ: " + lambdaAway);
-        System.out.printf("λ total partido: %.3f%n", lambdaHome + lambdaAway);
+        // ── FULL TIME ──
+        double ligaAvg = 1.35;
+        double lH_FT = Math.min((h.avgGoalsFor(true) * a.avgGoalsConceded(false) / ligaAvg) * 1.08 * leagueAdj_FT, capFT);
+        double lA_FT = Math.min((a.avgGoalsFor(false) * h.avgGoalsConceded(true) / ligaAvg) / leagueAdj_FT, capFT);
 
-        // =========================
-        // Poisson
-        // =========================
-        int maxGoals = 5;
+        PoissonModel.printPredictor(lH_FT, lA_FT, "FULL TIME (90 MIN)");
 
-        double[][] matrix =
-                PoissonCalculator.generateScoreMatrix(
-                        lambdaHome, lambdaAway, maxGoals);
+        // ── HALF TIME ──
+        // El HT debe ser consistente con el FT: si en FT local es favorito, en HT también debe serlo.
+        // Forzamos coherencia escalando el HT por el mismo ratio relativo que el FT.
+        double ftRatio = lH_FT / lA_FT; // ratio de favorito en FT
+        double ligaAvgHT = 0.60;
+        double lH_HT_raw = (h.avgHTGoalsFor(true) * a.avgHTGoalsAgainst(false) / ligaAvgHT) * leagueAdj_HT;
+        double lA_HT_raw = (a.avgHTGoalsFor(false) * h.avgHTGoalsAgainst(true) / ligaAvgHT) / leagueAdj_HT;
 
-        PoissonCalculator.printScoreMatrix(matrix);
+        // Si el ratio HT contradice al FT, empujamos suavemente hacia coherencia
+        double htRatio = lH_HT_raw / lA_HT_raw;
+        double blendedRatio = (ftRatio * 0.6 + htRatio * 0.4); // 60% FT, 40% HT propio
+        double htSum = lH_HT_raw + lA_HT_raw;
+        double lH_HT = Math.min((htSum * blendedRatio) / (1 + blendedRatio), capHT);
+        double lA_HT = Math.min(htSum / (1 + blendedRatio), capHT);
 
-        double[] probs = PoissonCalculator.calculate1X2(matrix);
+        PoissonModel.printPredictor(lH_HT, lA_HT, "HALF TIME (45 MIN)");
 
-        PoissonCalculator.MostProbableResult best =
-                PoissonCalculator.getMostProbableScore(matrix);
-
-        System.out.println("\n----- Resultado más probable -----");
-        System.out.printf("Marcador: %s %d - %d %s%n",
-                homeTeam,
-                best.homeGoals,
-                best.awayGoals,
-                awayTeam);
-
-        System.out.printf("Probabilidad: %.2f%%%n", best.probability * 100);
-
-        // =========================
-        // Probabilidades 1X2
-        // =========================
-        System.out.println("\n----- Probabilidades 1X2 -----");
-        System.out.printf("Local: %.2f%%%n", probs[0] * 100);
-        System.out.printf("Empate: %.2f%%%n", probs[1] * 100);
-        System.out.printf("Visitante: %.2f%%%n", probs[2] * 100);
-        System.out.printf("Suma: %.4f%n", probs[0] + probs[1] + probs[2]);
-
-        // =========================
-        // Fair Odds
-        // =========================
-        System.out.println("\n----- Fair Odds -----");
-        System.out.printf("Local: %.2f%n", 1 / probs[0]);
-        System.out.printf("Empate: %.2f%n", 1 / probs[1]);
-        System.out.printf("Visitante: %.2f%n", 1 / probs[2]);
-
-        sc.close();
-    }
-
-    // =========================
-    // Validación de equipos
-    // =========================
-    private String pedirEquipo(
-            String tipo,
-            EuropaLoader.EuropeData data,
-            Scanner sc
-    ) {
-        while (true) {
-            System.out.print("Ingresá equipo " + tipo + ": ");
-            String input = sc.nextLine().trim().replaceAll("\\s+", " ");
-
-            for (String team : data.teams.keySet()) {
-                if (team.equalsIgnoreCase(input)) {
-                    return team;
-                }
-            }
-            System.out.println("❌ Equipo no encontrado.");
-        }
+        PoissonModel.predictTotalGoals(lH_FT, lA_FT);
+        PoissonModel.predictSecondary(h, a, leagueAdj_FT);
     }
 }

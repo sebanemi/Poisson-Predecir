@@ -44,7 +44,6 @@ public class EuropaLoader {
 
             new MatchReader().readCsv(
                     data.teams,
-                    ls,
                     e.getKey(),
                     e.getValue()
             );

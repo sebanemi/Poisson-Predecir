@@ -2,96 +2,99 @@ package main;
 
 public class PoissonCalculator {
 
-    public static double poissonProbability(int k, double lambda) {
-        return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
+    public static double[][] generateScoreMatrix(double lambdaHome, double lambdaAway, int maxGoals) {
+
+        double[][] matrix = new double[maxGoals + 1][maxGoals + 1];
+
+        for (int i = 0; i <= maxGoals; i++) {
+            for (int j = 0; j <= maxGoals; j++) {
+                matrix[i][j] =
+                        poisson(i, lambdaHome) *
+                                poisson(j, lambdaAway);
+            }
+        }
+        return matrix;
     }
 
-    private static int factorial(int n) {
-        if (n <= 1) return 1;
-        int r = 1;
+    private static double poisson(int k, double lambda) {
+        return Math.pow(lambda, k) * Math.exp(-lambda) / factorial(k);
+    }
+
+    private static long factorial(int n) {
+        long r = 1;
         for (int i = 2; i <= n; i++) r *= i;
         return r;
     }
 
-    public static double[][] generateScoreMatrix(double lh, double la, int max) {
+    // =========================
+    // 1X2
+    // =========================
+    public static double[] calculate1X2(double[][] matrix) {
 
-        double[][] m = new double[max + 1][max + 1];
+        double home = 0, draw = 0, away = 0;
 
-        for (int i = 0; i <= max; i++) {
-            for (int j = 0; j <= max; j++) {
-                m[i][j] = poissonProbability(i, lh) * poissonProbability(j, la);
+        for (int i = 0; i < matrix.length; i++) {
+            for (int j = 0; j < matrix[i].length; j++) {
+                if (i > j) home += matrix[i][j];
+                else if (i == j) draw += matrix[i][j];
+                else away += matrix[i][j];
             }
         }
-        return m;
+        return new double[]{home, draw, away};
     }
 
-    public static double[] calculate1X2(double[][] m) {
-
-        double h = 0, d = 0, a = 0;
-
-        for (int i = 0; i < m.length; i++) {
-            for (int j = 0; j < m.length; j++) {
-                if (i > j) h += m[i][j];
-                else if (i == j) d += m[i][j];
-                else a += m[i][j];
-            }
-        }
-        return new double[]{h, d, a};
-    }
-
-    public static void printScoreMatrix(double[][] matrix) {
-
-        int size = matrix.length;
-
-        System.out.println("\n----- Matriz de Probabilidades (Marcador) -----");
-
-        // Encabezado columnas (goles visitante)
-        System.out.print("      ");
-        for (int j = 0; j < size; j++) {
-            System.out.printf("  %4d ", j);
-        }
-        System.out.println();
-
-        // Filas (goles local)
-        for (int i = 0; i < size; i++) {
-            System.out.printf("  %2d  ", i);
-
-            for (int j = 0; j < size; j++) {
-                System.out.printf("%6.4f ", matrix[i][j]);
-            }
-
-            System.out.println();
-        }
-    }
-
+    // =========================
+    // Resultado más probable
+    // =========================
     public static class MostProbableResult {
-        public final int homeGoals;
-        public final int awayGoals;
-        public final double probability;
-
-        public MostProbableResult(int h, int a, double p) {
-            this.homeGoals = h;
-            this.awayGoals = a;
-            this.probability = p;
-        }
+        public int homeGoals;
+        public int awayGoals;
+        public double probability;
     }
 
     public static MostProbableResult getMostProbableScore(double[][] matrix) {
 
-        int bestH = 0;
-        int bestA = 0;
-        double bestP = 0;
+        MostProbableResult best = new MostProbableResult();
 
         for (int i = 0; i < matrix.length; i++) {
             for (int j = 0; j < matrix[i].length; j++) {
-                if (matrix[i][j] > bestP) {
-                    bestP = matrix[i][j];
-                    bestH = i;
-                    bestA = j;
+                if (matrix[i][j] > best.probability) {
+                    best.probability = matrix[i][j];
+                    best.homeGoals = i;
+                    best.awayGoals = j;
                 }
             }
         }
+        return best;
+    }
 
-        return new MostProbableResult(bestH, bestA, bestP);
+    public static void printScoreMatrix(double[][] matrix) {
+
+        System.out.println("\n----- Matriz de Probabilidades (Marcador) -----");
+
+        System.out.print("     ");
+        for (int j = 0; j < matrix.length; j++)
+            System.out.printf("%6d", j);
+        System.out.println();
+
+        for (int i = 0; i < matrix.length; i++) {
+            System.out.printf("%3d ", i);
+            for (int j = 0; j < matrix[i].length; j++) {
+                System.out.printf("%6.4f", matrix[i][j]);
+            }
+            System.out.println();
+        }
+    }
+
+    public static double calculateOver25(double[][] matrix) {
+        double probOver = 0;
+        for (int i = 0; i < matrix.length; i++) {
+            for (int j = 0; j < matrix[i].length; j++) {
+                if ((i + j) > 2.5) {
+                    probOver += matrix[i][j];
+                }
+            }
+        }
+        return probOver;
     }
 }
