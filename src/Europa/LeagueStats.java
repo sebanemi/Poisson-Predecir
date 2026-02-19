@@ -25,11 +25,12 @@ public class LeagueStats {
         return matches == 0 ? 0 : (double) awayGoals / matches;
     }
 
-    public double avgHomeSOT() {
-        return matches == 0 ? 0 : (double) homeShotsOT / matches;
+    public double homeGoalPerSOT() {
+        return homeShotsOT == 0 ? 0.25 : (double) homeGoals / homeShotsOT;
     }
 
-    public double avgAwaySOT() {
-        return matches == 0 ? 0 : (double) awayShotsOT / matches;
+    public double awayGoalPerSOT() {
+        return awayShotsOT == 0 ? 0.25 : (double) awayGoals / awayShotsOT;
     }
+
 }

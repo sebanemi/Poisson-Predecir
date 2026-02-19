@@ -26,7 +26,7 @@ public class MatchReader {
                 }
 
                 String[] c = line.split(",");
-                if (c.length < 19) continue;
+                if (c.length < 17) continue;
 
                 try {
                     String home = c[3].trim();
@@ -41,14 +41,12 @@ public class MatchReader {
                     int hst = Integer.parseInt(c[15]);
                     int ast = Integer.parseInt(c[16]);
 
-                    int hc  = Integer.parseInt(c[17]);
-                    int ac  = Integer.parseInt(c[18]);
+                    // CREACIÓN SEGURA DE EQUIPOS
+                    teams.computeIfAbsent(home, t -> new TeamStats(leagueCode));
+                    teams.computeIfAbsent(away, t -> new TeamStats(leagueCode));
 
-                    teams.putIfAbsent(home, new TeamStats(leagueCode));
-                    teams.putIfAbsent(away, new TeamStats(leagueCode));
-
-                    teams.get(home).addHomeMatch(hg, ag, hs, hst, hc);
-                    teams.get(away).addAwayMatch(ag, hg, as, ast, ac);
+                    teams.get(home).addHomeMatch(hg, ag, hs, hst);
+                    teams.get(away).addAwayMatch(ag, hg, as, ast);
 
                     leagueStats.addMatch(hg, ag, hst, ast);
 
