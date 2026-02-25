@@ -1,131 +1,132 @@
 package Europa;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class TeamStats {
     private final String league;
 
-    private int homeMatches = 0, awayMatches = 0;
+    // Guardamos cada partido para poder calcular promedios ponderados
+    private final List<double[]> homeMatches = new ArrayList<>(); // [gf, ga, sot_f, sot_a, htgf, htga, y, r]
+    private final List<double[]> awayMatches = new ArrayList<>();
 
-    // Goles Full Time
-    private int homeGoalsFor = 0, homeGoalsAgainst = 0;
-    private int awayGoalsFor = 0, awayGoalsAgainst = 0;
-
-    // Tiros al arco — con contadores separados para partidos con datos válidos
-    private int homeSOT_For = 0, homeSOT_Against = 0, homeSOT_matches = 0;
-    private int awaySOT_For = 0, awaySOT_Against = 0, awaySOT_matches = 0;
-
-    // Half Time — goles propios y concedidos, separados por rol
-    private int homeHT_GF = 0, homeHT_GA = 0;
-    private int awayHT_GF = 0, awayHT_GA = 0;
-
-    // Tarjetas — solo las propias del equipo
-    private int yellowsAsHome = 0, yellowsAsAway = 0;
-    private int redsAsHome    = 0, redsAsAway    = 0;
+    // Pesos de decaimiento exponencial: partidos recientes valen más
+    // Los últimos 5 partidos tienen peso 1.5, los anteriores decaen con factor 0.85
+    private static final double RECENT_WEIGHT  = 1.5;  // peso extra para últimos 5
+    private static final double DECAY_FACTOR   = 0.85; // decaimiento por partido hacia atrás
 
     public TeamStats(String league) { this.league = league; }
     public String getLeague() { return league; }
 
-    /**
-     * Registra un partido jugado como LOCAL.
-     * Todos los parámetros son desde la perspectiva del CSV:
-     *   hg   = FTHG  (goles del local = goles propios)
-     *   ag   = FTAG  (goles del visitante = goles concedidos)
-     *   hst  = HST   (tiros al arco del local = propios)
-     *   ast  = AST   (tiros al arco del visitante = concedidos)
-     *   hthg = HTHG  (goles HT del local = propios en HT)
-     *   htag = HTAG  (goles HT del visitante = concedidos en HT)
-     *   hy   = HY    (amarillas del local = propias)
-     *   hr   = HR    (rojas del local = propias)
-     */
-    public void addHomeMatch(int hg, int ag,
-                             int hst, int ast,
-                             int hthg, int htag,
-                             int hy, int hr) {
-        homeGoalsFor     += hg;
-        homeGoalsAgainst += ag;
-        // Solo acumular SOT si hay datos reales (hst > 0 o ast > 0)
-        if (hst > 0 || ast > 0) {
-            homeSOT_For     += hst;
-            homeSOT_Against += ast;
-            homeSOT_matches++;
-        }
-        homeHT_GF        += hthg;
-        homeHT_GA        += htag;
-        yellowsAsHome    += hy;
-        redsAsHome       += hr;
-        homeMatches++;
+    public void addHomeMatch(int hg, int ag, int hst, int ast,
+                             int hthg, int htag, int hy, int hr) {
+        homeMatches.add(new double[]{hg, ag, hst, ast, hthg, htag, hy, hr});
     }
 
+    public void addAwayMatch(int myGoals, int theirGoals, int mySot, int theirSot,
+                             int myHtGoals, int theirHtGoals, int myYellows, int myReds) {
+        awayMatches.add(new double[]{myGoals, theirGoals, mySot, theirSot,
+                myHtGoals, theirHtGoals, myYellows, myReds});
+    }
+
+    // ── Promedios ponderados por tiempo ───────────────────────────────────────
+
     /**
-     * Registra un partido jugado como VISITANTE.
-     * Todos los parámetros son desde la perspectiva del equipo visitante:
-     *   myGoals        = FTAG  (goles propios)
-     *   theirGoals     = FTHG  (goles concedidos)
-     *   mySot          = AST   (tiros propios)
-     *   theirSot       = HST   (tiros concedidos)
-     *   myHtGoals      = HTAG  (goles HT propios)
-     *   theirHtGoals   = HTHG  (goles HT concedidos)
-     *   myYellows      = AY
-     *   myReds         = AR
+     * Calcula el promedio ponderado de un campo de los partidos.
+     * Los partidos más recientes (al final de la lista) tienen mayor peso.
+     * @param matches lista de partidos
+     * @param field   índice del campo en el array
+     * @param fallback valor si no hay datos
+     * @param onlyIfNonZero si true, ignora filas donde field == 0 (para SOT)
      */
-    public void addAwayMatch(int myGoals, int theirGoals,
-                             int mySot, int theirSot,
-                             int myHtGoals, int theirHtGoals,
-                             int myYellows, int myReds) {
-        awayGoalsFor     += myGoals;
-        awayGoalsAgainst += theirGoals;
-        if (mySot > 0 || theirSot > 0) {
-            awaySOT_For     += mySot;
-            awaySOT_Against += theirSot;
-            awaySOT_matches++;
+    private double weightedAvg(List<double[]> matches, int field,
+                               double fallback, boolean onlyIfNonZero) {
+        if (matches.isEmpty()) return fallback;
+
+        double sumWeighted = 0, sumWeights = 0;
+        int n = matches.size();
+
+        for (int i = 0; i < n; i++) {
+            double val = matches.get(i)[field];
+            if (onlyIfNonZero && val == 0 &&
+                    matches.get(i)[2] == 0 && matches.get(i)[3] == 0) continue; // sin datos SOT
+
+            // Posición desde el final (0 = más reciente)
+            int fromEnd = n - 1 - i;
+
+            double weight;
+            if (fromEnd < 5) {
+                // Últimos 5 partidos: peso extra
+                weight = RECENT_WEIGHT * Math.pow(DECAY_FACTOR, fromEnd);
+            } else {
+                // Partidos anteriores: decaimiento normal desde el umbral
+                weight = RECENT_WEIGHT * Math.pow(DECAY_FACTOR, 4) *
+                        Math.pow(DECAY_FACTOR, fromEnd - 4);
+            }
+
+            sumWeighted += val * weight;
+            sumWeights  += weight;
         }
-        awayHT_GF        += myHtGoals;
-        awayHT_GA        += theirHtGoals;
-        yellowsAsAway    += myYellows;
-        redsAsAway       += myReds;
-        awayMatches++;
+
+        return sumWeights == 0 ? fallback : sumWeighted / sumWeights;
     }
 
     // ── Goles Full Time ──
     public double avgGoalsFor(boolean home) {
-        int m = home ? homeMatches : awayMatches;
-        return m == 0 ? 1.35 : (double)(home ? homeGoalsFor : awayGoalsFor) / m;
+        return weightedAvg(home ? homeMatches : awayMatches, 0, 1.35, false);
     }
 
     public double avgGoalsConceded(boolean home) {
-        int m = home ? homeMatches : awayMatches;
-        return m == 0 ? 1.35 : (double)(home ? homeGoalsAgainst : awayGoalsAgainst) / m;
+        return weightedAvg(home ? homeMatches : awayMatches, 1, 1.35, false);
     }
 
     // ── Tiros al arco ──
     public double avgSOT_For(boolean home) {
-        int m = home ? homeSOT_matches : awaySOT_matches;
-        return m == 0 ? 4.5 : (double)(home ? homeSOT_For : awaySOT_For) / m;
+        List<double[]> matches = home ? homeMatches : awayMatches;
+        // Filtrar solo partidos con datos de SOT (sot_for + sot_against > 0)
+        List<double[]> withSOT = new ArrayList<>();
+        for (double[] m : matches) {
+            if (m[2] > 0 || m[3] > 0) withSOT.add(m);
+        }
+        return weightedAvg(withSOT, 2, 4.5, false);
     }
 
     public double avgSOT_Against(boolean home) {
-        int m = home ? homeSOT_matches : awaySOT_matches;
-        return m == 0 ? 4.5 : (double)(home ? homeSOT_Against : awaySOT_Against) / m;
+        List<double[]> matches = home ? homeMatches : awayMatches;
+        List<double[]> withSOT = new ArrayList<>();
+        for (double[] m : matches) {
+            if (m[2] > 0 || m[3] > 0) withSOT.add(m);
+        }
+        return weightedAvg(withSOT, 3, 4.5, false);
     }
 
     // ── Half Time ──
     public double avgHTGoalsFor(boolean home) {
-        int m = home ? homeMatches : awayMatches;
-        return m == 0 ? 0.6 : (double)(home ? homeHT_GF : awayHT_GF) / m;
+        return weightedAvg(home ? homeMatches : awayMatches, 4, 0.6, false);
     }
 
     public double avgHTGoalsAgainst(boolean home) {
-        int m = home ? homeMatches : awayMatches;
-        return m == 0 ? 0.6 : (double)(home ? homeHT_GA : awayHT_GA) / m;
+        return weightedAvg(home ? homeMatches : awayMatches, 5, 0.6, false);
     }
 
     // ── Tarjetas ──
     public double avgYellows() {
-        int total = homeMatches + awayMatches;
-        return total == 0 ? 2.0 : (double)(yellowsAsHome + yellowsAsAway) / total;
+        double h = weightedAvg(homeMatches, 6, 2.0, false);
+        double a = weightedAvg(awayMatches, 6, 2.0, false);
+        int total = homeMatches.size() + awayMatches.size();
+        if (total == 0) return 2.0;
+        // Promedio ponderado por cantidad de partidos de cada rol
+        return (h * homeMatches.size() + a * awayMatches.size()) / total;
     }
 
     public double avgReds() {
-        int total = homeMatches + awayMatches;
-        return total == 0 ? 0.05 : (double)(redsAsHome + redsAsAway) / total;
+        double h = weightedAvg(homeMatches, 7, 0.05, false);
+        double a = weightedAvg(awayMatches, 7, 0.05, false);
+        int total = homeMatches.size() + awayMatches.size();
+        if (total == 0) return 0.05;
+        return (h * homeMatches.size() + a * awayMatches.size()) / total;
     }
+
+    public int homeMatchCount() { return homeMatches.size(); }
+    public int awayMatchCount() { return awayMatches.size(); }
 }

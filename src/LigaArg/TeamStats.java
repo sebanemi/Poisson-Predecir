@@ -2,42 +2,43 @@ package LigaArg;
 
 public class TeamStats {
 
-    private int homeMatches = 0;
-    private int awayMatches = 0;
+    private int homeMatches = 0, awayMatches = 0;
 
-    private int homeGoalsFor = 0;
-    private int homeGoalsAgainst = 0;
+    private int homeGoalsFor = 0, homeGoalsAgainst = 0;
+    private int awayGoalsFor = 0, awayGoalsAgainst = 0;
 
-    private int awayGoalsFor = 0;
-    private int awayGoalsAgainst = 0;
+    // ── Registro de partidos ──
 
-    public void addHomeMatch(int goalsFor, int goalsAgainst) {
+    public void addHomeMatch(int hg, int ag) {
+        homeGoalsFor     += hg;
+        homeGoalsAgainst += ag;
         homeMatches++;
-        homeGoalsFor += goalsFor;
-        homeGoalsAgainst += goalsAgainst;
     }
 
-    public void addAwayMatch(int goalsFor, int goalsAgainst) {
+    public void addAwayMatch(int ag, int hg) {
+        awayGoalsFor     += ag;
+        awayGoalsAgainst += hg;
         awayMatches++;
-        awayGoalsFor += goalsFor;
-        awayGoalsAgainst += goalsAgainst;
     }
 
-    // --- Promedios ---
+    // ── Getters ──
 
-    public double getHomeAverageGoalsFor() {
-        return homeMatches == 0 ? 0 : (double) homeGoalsFor / homeMatches;
+    public double avgGoalsFor(boolean home) {
+        int m = home ? homeMatches : awayMatches;
+        return m == 0 ? 1.20 : (double)(home ? homeGoalsFor : awayGoalsFor) / m;
     }
 
-    public double getHomeAverageGoalsAgainst() {
-        return homeMatches == 0 ? 0 : (double) homeGoalsAgainst / homeMatches;
+    public double avgGoalsConceded(boolean home) {
+        int m = home ? homeMatches : awayMatches;
+        return m == 0 ? 1.20 : (double)(home ? homeGoalsAgainst : awayGoalsAgainst) / m;
     }
 
-    public double getAwayAverageGoalsFor() {
-        return awayMatches == 0 ? 0 : (double) awayGoalsFor / awayMatches;
-    }
+    public int getHomeMatches() { return homeMatches; }
+    public int getAwayMatches() { return awayMatches; }
 
-    public double getAwayAverageGoalsAgainst() {
-        return awayMatches == 0 ? 0 : (double) awayGoalsAgainst / awayMatches;
-    }
+    // Compatibilidad con LigaArgApp viejo
+    public double getHomeAverageGoalsFor()      { return avgGoalsFor(true); }
+    public double getHomeAverageGoalsAgainst()  { return avgGoalsConceded(true); }
+    public double getAwayAverageGoalsFor()      { return avgGoalsFor(false); }
+    public double getAwayAverageGoalsAgainst()  { return avgGoalsConceded(false); }
 }

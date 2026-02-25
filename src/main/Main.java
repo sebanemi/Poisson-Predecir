@@ -15,18 +15,32 @@ public class Main {
         System.out.println("2 - Liga Arg");
 
         int opcion = sc.nextInt();
+        sc.nextLine(); // consumir el salto de línea
+
+        DataDownloader downloader = new DataDownloader();
 
         switch (opcion) {
-            case 1:
-                new EuropaApp().run();
-                break;
-
-            case 2:
-                new LigaArgApp().run();
-                break;
-
-            default:
-                System.out.println("Opción inválida");
+            case 1 -> {
+                try {
+                    String europaDir = downloader.downloadEuropa();
+                    new EuropaApp(europaDir).run();
+                } catch (Exception e) {
+                    System.out.println("Error al descargar datos de Europa: " + e.getMessage());
+                } finally {
+                    downloader.cleanEuropa();
+                }
+            }
+            case 2 -> {
+                try {
+                    String argFile = downloader.downloadArg();
+                    new LigaArgApp(argFile).run();
+                } catch (Exception e) {
+                    System.out.println("Error al descargar datos de Argentina: " + e.getMessage());
+                } finally {
+                    downloader.cleanArg();
+                }
+            }
+            default -> System.out.println("Opción inválida");
         }
     }
 }
